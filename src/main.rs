@@ -50,69 +50,53 @@ fn next_state(fsm: &FSM, current_state: usize, thrown_event: usize) -> usize {
     return fsm.storage[thrown_event][current_state];
 }
 
-fn add_transition(fsm: &mut FSM, from_state: usize, to_state: usize, when_event: usize) {
-    fsm.storage[when_event][from_state] = to_state;
+struct Transition {
+    from_state: usize,
+    to_state: usize,
+    when_event: usize,
+}
+
+impl Transition {
+    fn new(from_state: usize, to_state: usize, when_event: usize) -> Self {
+        Transition {
+            from_state,
+            to_state,
+            when_event,
+        }
+    }
+}
+
+fn add_transition(fsm: &mut FSM, transition: &Transition) {
+    fsm.storage[transition.when_event][transition.from_state] = transition.to_state;
+}
+
+fn add_transitions(fsm: &mut FSM, transitions: &[Transition]) {
+    for transition in transitions {
+        add_transition(fsm, &transition);
+    }
 }
 
 fn main() {
     let mut fsm_table = FSM::new();
-    add_transition(&mut fsm_table, state::OFF, state::IDLE, event::ON_OFF_BTN);
-    add_transition(
-        &mut fsm_table,
-        state::IDLE,
-        state::SELECTED,
-        event::SELECT_COFFEE_BTN,
-    );
-    add_transition(&mut fsm_table, state::IDLE, state::OFF, event::ON_OFF_BTN);
-    add_transition(
-        &mut fsm_table,
-        state::SELECTED,
-        state::IDLE,
-        event::SELECT_COFFEE_BTN,
-    );
-    add_transition(
-        &mut fsm_table,
-        state::SELECTED,
-        state::OFF,
-        event::ON_OFF_BTN,
-    );
-    add_transition(
-        &mut fsm_table,
-        state::STARTED,
-        state::OFF,
-        event::ON_OFF_BTN,
-    );
-    add_transition(&mut fsm_table, state::IDLE, state::OFF, event::OFF_TIMEOUT);
-    add_transition(
-        &mut fsm_table,
-        state::STARTED,
-        state::OFF,
-        event::OFF_TIMEOUT,
-    );
-    add_transition(
-        &mut fsm_table,
-        state::SELECTED,
-        state::OFF,
-        event::OFF_TIMEOUT,
-    );
-    add_transition(
-        &mut fsm_table,
-        state::SELECTED,
-        state::STARTED,
-        event::START_STOP_BTN,
-    );
-    add_transition(
-        &mut fsm_table,
-        state::STARTED,
-        state::SELECTED,
-        event::COFFEE_DONE,
-    );
-    add_transition(
-        &mut fsm_table,
-        state::STARTED,
-        state::SELECTED,
-        event::START_STOP_BTN,
-    );
+    let transitions = [
+        // off
+        Transition::new(state::OFF, state::IDLE, event::ON_OFF_BTN),
+        // idle
+        Transition::new(state::IDLE, state::SELECTED, event::SELECT_COFFEE_BTN),
+        Transition::new(state::IDLE, state::OFF, event::ON_OFF_BTN),
+        Transition::new(state::IDLE, state::OFF, event::OFF_TIMEOUT),
+        // selected
+        Transition::new(state::SELECTED, state::OFF, event::ON_OFF_BTN),
+        Transition::new(state::SELECTED, state::OFF, event::OFF_TIMEOUT),
+        Transition::new(state::SELECTED, state::IDLE, event::SELECT_COFFEE_BTN),
+        Transition::new(state::SELECTED, state::STARTED, event::START_STOP_BTN),
+        // started
+        Transition::new(state::STARTED, state::OFF, event::ON_OFF_BTN),
+        Transition::new(state::STARTED, state::OFF, event::OFF_TIMEOUT),
+        Transition::new(state::STARTED, state::SELECTED, event::START_STOP_BTN),
+        Transition::new(state::STARTED, state::SELECTED, event::COFFEE_DONE),
+    ];
 
+    add_transitions(&mut fsm_table, &transitions);
     fsm_table.dump();
 }
