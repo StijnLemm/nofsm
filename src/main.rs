@@ -1,23 +1,3 @@
-pub mod state {
-    pub const OFF: usize = 0;
-    pub const IDLE: usize = 1;
-    pub const SELECTED: usize = 2;
-    pub const STARTED: usize = 3;
-}
-
-pub mod event {
-    pub const ON_OFF_BTN: usize = 0;
-    pub const SELECT_COFFEE_BTN: usize = 1;
-    pub const START_STOP_BTN: usize = 2;
-    pub const COFFEE_DONE: usize = 3;
-    pub const OFF_TIMEOUT: usize = 4;
-}
-
-const EVENT_AMOUNT: usize = 5;
-const STATE_AMOUNT: usize = 4;
-
-type FsmStorage = [[usize; STATE_AMOUNT]; EVENT_AMOUNT];
-
 struct Transition {
     from_state: usize,
     to_state: usize,
@@ -34,14 +14,14 @@ impl Transition {
     }
 }
 
-struct FSM {
-    storage: FsmStorage,
+struct FSM<const STATE_COUNT: usize, const EVENT_COUNT: usize> {
+    storage: [[usize; STATE_COUNT]; EVENT_COUNT],
 }
 
-impl FSM {
+impl<const STATE_COUNT: usize, const EVENT_COUNT: usize> FSM<STATE_COUNT, EVENT_COUNT> {
     fn new() -> Self {
         FSM {
-            storage: [core::array::from_fn(|i| i); EVENT_AMOUNT],
+            storage: [core::array::from_fn(|i| i); EVENT_COUNT],
         }
     }
 
@@ -67,7 +47,7 @@ impl FSM {
 
     fn dump(&self) {
         print!("\t\t");
-        for i in 0..(STATE_AMOUNT) {
+        for i in 0..STATE_COUNT {
             print!("State {i}\t\t");
         }
         print!("\n");
@@ -82,46 +62,113 @@ impl FSM {
     }
 }
 
-fn main() {
-    let fsm = FSM::compile(&[
-        // off
-        Transition::new(state::OFF, state::IDLE, event::ON_OFF_BTN),
-        // idle
-        Transition::new(state::IDLE, state::SELECTED, event::SELECT_COFFEE_BTN),
-        Transition::new(state::IDLE, state::OFF, event::ON_OFF_BTN),
-        Transition::new(state::IDLE, state::OFF, event::OFF_TIMEOUT),
-        // selected
-        Transition::new(state::SELECTED, state::OFF, event::ON_OFF_BTN),
-        Transition::new(state::SELECTED, state::OFF, event::OFF_TIMEOUT),
-        Transition::new(state::SELECTED, state::IDLE, event::SELECT_COFFEE_BTN),
-        Transition::new(state::SELECTED, state::STARTED, event::START_STOP_BTN),
-        // started
-        Transition::new(state::STARTED, state::OFF, event::ON_OFF_BTN),
-        Transition::new(state::STARTED, state::OFF, event::OFF_TIMEOUT),
-        Transition::new(state::STARTED, state::SELECTED, event::START_STOP_BTN),
-        Transition::new(state::STARTED, state::SELECTED, event::COFFEE_DONE),
+#[test]
+fn test_turnstile() {
+    const STATE_LOCKED: usize = 0;
+    const STATE_UNLOCKED: usize = 1;
+
+    const EVENT_PUSH: usize = 0;
+    const EVENT_COIN: usize = 1;
+
+    let fsm = FSM::<2, 2>::compile(&[
+        Transition::new(STATE_LOCKED, STATE_UNLOCKED, EVENT_COIN),
+        Transition::new(STATE_LOCKED, STATE_LOCKED, EVENT_PUSH),
+        Transition::new(STATE_UNLOCKED, STATE_UNLOCKED, EVENT_COIN),
+        Transition::new(STATE_UNLOCKED, STATE_LOCKED, EVENT_PUSH),
     ]);
 
-    let next = fsm.get_next_state(state::OFF, event::START_STOP_BTN);
-    assert_eq!(next, state::OFF);
+    let next = fsm.get_next_state(STATE_LOCKED, EVENT_COIN);
+    assert_eq!(next, STATE_UNLOCKED);
 
-    let next = fsm.get_next_state(next, event::ON_OFF_BTN);
-    assert_eq!(next, state::IDLE);
+    let next = fsm.get_next_state(next, EVENT_COIN);
+    assert_eq!(next, STATE_UNLOCKED);
 
-    let next = fsm.get_next_state(next, event::SELECT_COFFEE_BTN);
-    assert_eq!(next, state::SELECTED);
+    let next = fsm.get_next_state(next, EVENT_PUSH);
+    assert_eq!(next, STATE_LOCKED);
 
-    let next = fsm.get_next_state(next, event::SELECT_COFFEE_BTN);
-    assert_eq!(next, state::IDLE);
+    let next = fsm.get_next_state(next, EVENT_PUSH);
+    assert_eq!(next, STATE_LOCKED);
 
-    let next = fsm.get_next_state(next, event::SELECT_COFFEE_BTN);
-    assert_eq!(next, state::SELECTED);
+    fsm.dump();
+}
 
-    let next = fsm.get_next_state(next, event::START_STOP_BTN);
-    assert_eq!(next, state::STARTED);
+#[test]
+fn test_coffee_machine() {
+    const STATE_OFF: usize = 0;
+    const STATE_IDLE: usize = 1;
+    const STATE_SELECTED: usize = 2;
+    const STATE_STARTED: usize = 3;
 
-    let next = fsm.get_next_state(next, event::SELECT_COFFEE_BTN);
-    assert_eq!(next, state::STARTED);
+    const EVENT_ON_OFF_BTN: usize = 0;
+    const EVENT_SELECT_COFFEE_BTN: usize = 1;
+    const EVENT_START_STOP_BTN: usize = 2;
+    const EVENT_COFFEE_DONE: usize = 3;
+    const EVENT_OFF_TIMEOUT: usize = 4;
+
+    let fsm = FSM::<4, 5>::compile(&[
+        // off
+        Transition::new(STATE_OFF, STATE_IDLE, EVENT_ON_OFF_BTN),
+        // idle
+        Transition::new(STATE_IDLE, STATE_SELECTED, EVENT_SELECT_COFFEE_BTN),
+        Transition::new(STATE_IDLE, STATE_OFF, EVENT_ON_OFF_BTN),
+        Transition::new(STATE_IDLE, STATE_OFF, EVENT_OFF_TIMEOUT),
+        // selected
+        Transition::new(STATE_SELECTED, STATE_OFF, EVENT_ON_OFF_BTN),
+        Transition::new(STATE_SELECTED, STATE_OFF, EVENT_OFF_TIMEOUT),
+        Transition::new(STATE_SELECTED, STATE_IDLE, EVENT_SELECT_COFFEE_BTN),
+        Transition::new(STATE_SELECTED, STATE_STARTED, EVENT_START_STOP_BTN),
+        // started
+        Transition::new(STATE_STARTED, STATE_OFF, EVENT_ON_OFF_BTN),
+        Transition::new(STATE_STARTED, STATE_OFF, EVENT_OFF_TIMEOUT),
+        Transition::new(STATE_STARTED, STATE_SELECTED, EVENT_START_STOP_BTN),
+        Transition::new(STATE_STARTED, STATE_SELECTED, EVENT_COFFEE_DONE),
+    ]);
+
+    let next = fsm.get_next_state(STATE_OFF, EVENT_START_STOP_BTN);
+    assert_eq!(next, STATE_OFF);
+
+    let next = fsm.get_next_state(next, EVENT_ON_OFF_BTN);
+    assert_eq!(next, STATE_IDLE);
+
+    let next = fsm.get_next_state(next, EVENT_SELECT_COFFEE_BTN);
+    assert_eq!(next, STATE_SELECTED);
+
+    let next = fsm.get_next_state(next, EVENT_SELECT_COFFEE_BTN);
+    assert_eq!(next, STATE_IDLE);
+
+    let next = fsm.get_next_state(next, EVENT_SELECT_COFFEE_BTN);
+    assert_eq!(next, STATE_SELECTED);
+
+    let next = fsm.get_next_state(next, EVENT_START_STOP_BTN);
+    assert_eq!(next, STATE_STARTED);
+
+    let next = fsm.get_next_state(next, EVENT_SELECT_COFFEE_BTN);
+    assert_eq!(next, STATE_STARTED);
+}
+
+fn main() {
+    const STATE_ONE: usize = 0;
+    const STATE_TWO: usize = 1;
+
+    const EVENT_ONE: usize = 0;
+    const EVENT_TWO: usize = 1;
+
+    let fsm = FSM::<2, 2>::compile(&[
+        Transition::new(STATE_ONE, STATE_TWO, EVENT_TWO),
+        Transition::new(STATE_TWO, STATE_ONE, EVENT_ONE),
+    ]);
+
+    let next = fsm.get_next_state(STATE_ONE, EVENT_ONE);
+    assert_eq!(next, STATE_ONE);
+
+    let next = fsm.get_next_state(next, EVENT_TWO);
+    assert_eq!(next, STATE_TWO);
+
+    let next = fsm.get_next_state(next, EVENT_TWO);
+    assert_eq!(next, STATE_TWO);
+
+    let next = fsm.get_next_state(next, EVENT_ONE);
+    assert_eq!(next, STATE_ONE);
 
     fsm.dump();
 }
