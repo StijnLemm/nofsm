@@ -1,8 +1,8 @@
-# nofsm
+# NOFSM (Pure rust Finite State Machine Helper)
 Pure rust Finite state machine. No dynamic memory allocation.
 
 Example:
-``` cpp
+``` rust
 const STATE_ONE: usize = 0;
 const STATE_TWO: usize = 1;
 
