@@ -18,6 +18,22 @@ const STATE_AMOUNT: usize = 4;
 
 type FsmStorage = [[usize; STATE_AMOUNT]; EVENT_AMOUNT];
 
+struct Transition {
+    from_state: usize,
+    to_state: usize,
+    when_event: usize,
+}
+
+impl Transition {
+    fn new(from_state: usize, to_state: usize, when_event: usize) -> Self {
+        Transition {
+            from_state,
+            to_state,
+            when_event,
+        }
+    }
+}
+
 struct FSM {
     storage: FsmStorage,
 }
@@ -27,6 +43,26 @@ impl FSM {
         FSM {
             storage: [core::array::from_fn(|i| i); EVENT_AMOUNT],
         }
+    }
+
+    fn compile(transitions: &[Transition]) -> Self {
+        let mut fsm = FSM::new();
+        fsm.add_transitions(transitions);
+        fsm
+    }
+
+    fn add_transition(&mut self, transition: &Transition) {
+        self.storage[transition.when_event][transition.from_state] = transition.to_state;
+    }
+
+    fn add_transitions(&mut self, transitions: &[Transition]) {
+        for transition in transitions {
+            self.add_transition(&transition);
+        }
+    }
+
+    fn get_next_state(&self, current_state: usize, thrown_event: usize) -> usize {
+        self.storage[thrown_event][current_state]
     }
 
     fn dump(&self) {
@@ -46,39 +82,8 @@ impl FSM {
     }
 }
 
-fn next_state(fsm: &FSM, current_state: usize, thrown_event: usize) -> usize {
-    return fsm.storage[thrown_event][current_state];
-}
-
-struct Transition {
-    from_state: usize,
-    to_state: usize,
-    when_event: usize,
-}
-
-impl Transition {
-    fn new(from_state: usize, to_state: usize, when_event: usize) -> Self {
-        Transition {
-            from_state,
-            to_state,
-            when_event,
-        }
-    }
-}
-
-fn add_transition(fsm: &mut FSM, transition: &Transition) {
-    fsm.storage[transition.when_event][transition.from_state] = transition.to_state;
-}
-
-fn add_transitions(fsm: &mut FSM, transitions: &[Transition]) {
-    for transition in transitions {
-        add_transition(fsm, &transition);
-    }
-}
-
 fn main() {
-    let mut fsm_table = FSM::new();
-    let transitions = [
+    let fsm = FSM::compile(&[
         // off
         Transition::new(state::OFF, state::IDLE, event::ON_OFF_BTN),
         // idle
@@ -95,8 +100,28 @@ fn main() {
         Transition::new(state::STARTED, state::OFF, event::OFF_TIMEOUT),
         Transition::new(state::STARTED, state::SELECTED, event::START_STOP_BTN),
         Transition::new(state::STARTED, state::SELECTED, event::COFFEE_DONE),
-    ];
+    ]);
 
-    add_transitions(&mut fsm_table, &transitions);
-    fsm_table.dump();
+    let next = fsm.get_next_state(state::OFF, event::START_STOP_BTN);
+    assert_eq!(next, state::OFF);
+
+    let next = fsm.get_next_state(next, event::ON_OFF_BTN);
+    assert_eq!(next, state::IDLE);
+
+    let next = fsm.get_next_state(next, event::SELECT_COFFEE_BTN);
+    assert_eq!(next, state::SELECTED);
+
+    let next = fsm.get_next_state(next, event::SELECT_COFFEE_BTN);
+    assert_eq!(next, state::IDLE);
+
+    let next = fsm.get_next_state(next, event::SELECT_COFFEE_BTN);
+    assert_eq!(next, state::SELECTED);
+
+    let next = fsm.get_next_state(next, event::START_STOP_BTN);
+    assert_eq!(next, state::STARTED);
+
+    let next = fsm.get_next_state(next, event::SELECT_COFFEE_BTN);
+    assert_eq!(next, state::STARTED);
+
+    fsm.dump();
 }
