@@ -1,5 +1,20 @@
+pub mod state {
+    pub const OFF: usize = 0;
+    pub const IDLE: usize = 1;
+    pub const SELECTED: usize = 2;
+    pub const STARTED: usize = 3;
+}
+
+pub mod event {
+    pub const ON_OFF_BTN: usize = 0;
+    pub const SELECT_COFFEE_BTN: usize = 1;
+    pub const START_STOP_BTN: usize = 2;
+    pub const COFFEE_DONE: usize = 3;
+    pub const OFF_TIMEOUT: usize = 4;
+}
+
 const EVENT_AMOUNT: usize = 5;
-const STATE_AMOUNT: usize = 5;
+const STATE_AMOUNT: usize = 4;
 
 type FsmStorage = [[usize; STATE_AMOUNT]; EVENT_AMOUNT];
 
@@ -10,7 +25,7 @@ struct FSM {
 impl FSM {
     fn new() -> Self {
         FSM {
-            storage: [[0; STATE_AMOUNT]; EVENT_AMOUNT],
+            storage: [core::array::from_fn(|i| i); EVENT_AMOUNT],
         }
     }
 
@@ -41,11 +56,63 @@ fn add_transition(fsm: &mut FSM, from_state: usize, to_state: usize, when_event:
 
 fn main() {
     let mut fsm_table = FSM::new();
-    add_transition(&mut fsm_table, 1, 4, 3);
+    add_transition(&mut fsm_table, state::OFF, state::IDLE, event::ON_OFF_BTN);
+    add_transition(
+        &mut fsm_table,
+        state::IDLE,
+        state::SELECTED,
+        event::SELECT_COFFEE_BTN,
+    );
+    add_transition(&mut fsm_table, state::IDLE, state::OFF, event::ON_OFF_BTN);
+    add_transition(
+        &mut fsm_table,
+        state::SELECTED,
+        state::IDLE,
+        event::SELECT_COFFEE_BTN,
+    );
+    add_transition(
+        &mut fsm_table,
+        state::SELECTED,
+        state::OFF,
+        event::ON_OFF_BTN,
+    );
+    add_transition(
+        &mut fsm_table,
+        state::STARTED,
+        state::OFF,
+        event::ON_OFF_BTN,
+    );
+    add_transition(&mut fsm_table, state::IDLE, state::OFF, event::OFF_TIMEOUT);
+    add_transition(
+        &mut fsm_table,
+        state::STARTED,
+        state::OFF,
+        event::OFF_TIMEOUT,
+    );
+    add_transition(
+        &mut fsm_table,
+        state::SELECTED,
+        state::OFF,
+        event::OFF_TIMEOUT,
+    );
+    add_transition(
+        &mut fsm_table,
+        state::SELECTED,
+        state::STARTED,
+        event::START_STOP_BTN,
+    );
+    add_transition(
+        &mut fsm_table,
+        state::STARTED,
+        state::SELECTED,
+        event::COFFEE_DONE,
+    );
+    add_transition(
+        &mut fsm_table,
+        state::STARTED,
+        state::SELECTED,
+        event::START_STOP_BTN,
+    );
 
     fsm_table.dump();
-
-    let next_state = next_state(&fsm_table, 1, 3);
-    println!("");
-    println!("Transition 1 => {next_state} when event: 3");
 }
